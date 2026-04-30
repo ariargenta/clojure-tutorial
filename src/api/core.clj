@@ -1,5 +1,7 @@
-(ns api.core)
+(ns api.core
+  (:require [api.config :as config]))
 
 (defn -main
   []
-  (println "Starting Clojure API service"))
+  (let [config (config/read-config)]
+  (println "Starting Clojure API service with configuration" config)))
