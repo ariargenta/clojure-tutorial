@@ -1,7 +1,9 @@
 (ns api.core
   (:require [api.config :as config]
             [io.pedestal.http :as http]
-            [io.pedestal.http.route :as route]))
+            [io.pedestal.http.route :as route]
+            [com.stuartsierra.component :as component]
+            [api.components.testing :as test-component]))
 
 (defn respond-hello
   [request]
@@ -24,8 +26,17 @@
   [config]
   (http/start (create-server config)))
 
+(defn api-system
+  [config]
+  (component/system-map
+    :test-component (test-component/new-test-component config)))
+
 (defn -main
   []
-  (let [config (config/read-config)]
-  (println "Starting Clojure API service with configuration" config)
-  (start config)))
+  (let [system (-> (config/read-config)
+                   (api-system)
+                   (component/start-system))]
+  (println "Starting Clojure API service with configuration")
+  (.addShutdownHook
+    (Runtime/getRuntime)
+    (new Thread #(component/stop-system system)))))
