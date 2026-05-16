@@ -21,5 +21,15 @@
            (client/get)
            (select-keys [:body :status]))))))
 
+(deftest get-todo-test
+  (let [todo-id (random-uuid)]
+    (with-system
+      [sut (core/api-system {:server {:port 8088}})]
+      (is (= {:body "Hello, world!"
+              :status 200}
+             (-> (str "http://localhost:" 8088 "/todo" todo-id)
+                 (client/get)
+                 (select-keys [:body :status])))))))
+
 (deftest simple-api-test
   (is (= 1 1)))
