@@ -1,8 +1,10 @@
 (ns component.api.api-component-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.string :as str]
+            [clojure.test :refer :all]
             [com.stuartsierra.component :as component]
             [api.core :as core]
-            [clj-http.client :as client]))
+            [clj-http.client :as client]
+            [api.components.pedestal-component :refer [url-for]]))
 
 (defmacro with-system
   [[bound-var binding-expr] & body]
@@ -12,12 +14,17 @@
        (finally
          (component/stop ~bound-var)))))
 
+(defn sut->url
+  [sut path]
+  (str/join ["http://localhost:"
+             (-> sut :pedestal-component :config :server :port) path]))
+
 (deftest greeting-test
   (with-system
     [sut (core/api-system {:server {:port 8088}})]
     (is (= {:body "Hello, world!"
             :status 200}
-           (-> (str "http://localhost:" 8088 "/greet")
+           (-> (sut->url sut (url-for :greet))
            (client/get)
            (select-keys [:body :status]))))))
 
@@ -33,12 +40,13 @@
       (reset! (-> sut :in-memory-state-component :state-atom) [todo-1])
       (is (= {:body (pr-str todo-1)
               :status 200}
-             (-> (str "http://localhost:" 8088 "/todo/" todo-id-1)
+             (-> (sut->url sut (url-for :get-todo {:path-params {:todo-id todo-id-1}}))
                  (client/get)
                  (select-keys [:body :status]))))
-     (testing "Empty body returned for random id")(is (= {:body ""
+     (testing "Empty body returned for random id")
+      (is (= {:body ""
               :status 200}
-             (-> (str "http://localhost:" 8088 "/todo/" (random-uuid))
+             (-> (sut->url sut (url-for :get-todo {:path-params {:todo-id random-uuid}}))
                  (client/get)
                  (select-keys [:body :status])))))))
 
