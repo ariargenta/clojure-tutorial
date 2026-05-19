@@ -21,13 +21,24 @@
            (client/get)
            (select-keys [:body :status]))))))
 
+
 (deftest get-todo-test
-  (let [todo-id (random-uuid)]
+  (let [todo-id-1 (random-uuid)
+        todo-1 {:id todo-id-1
+                :name "To do test"
+                :items [{:id (random-uuid)
+                         :name "Finish the test"}]}]
     (with-system
       [sut (core/api-system {:server {:port 8088}})]
-      (is (= {:body "Hello, world!"
+      (reset! (-> sut :in-memory-state-component :state-atom) [todo-1])
+      (is (= {:body (pr-str todo-1)
               :status 200}
-             (-> (str "http://localhost:" 8088 "/todo" todo-id)
+             (-> (str "http://localhost:" 8088 "/todo/" todo-id-1)
+                 (client/get)
+                 (select-keys [:body :status]))))
+     (testing "Empty body returned for random id")(is (= {:body ""
+              :status 200}
+             (-> (str "http://localhost:" 8088 "/todo/" (random-uuid))
                  (client/get)
                  (select-keys [:body :status])))))))
 
