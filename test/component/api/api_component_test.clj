@@ -4,7 +4,8 @@
             [com.stuartsierra.component :as component]
             [api.core :as core]
             [clj-http.client :as client]
-            [api.components.pedestal-component :refer [url-for]]))
+            [api.components.pedestal-component :refer [url-for]])
+  (:import (java.net ServerSocket)))
 
 (defmacro with-system
   [[bound-var binding-expr] & body]
@@ -19,9 +20,14 @@
   (str/join ["http://localhost:"
              (-> sut :pedestal-component :config :server :port) path]))
 
+(defn get-free-port
+  []
+  (with-open [socket (ServerSocket. 0)]
+    (.getLocalPort socket)))
+
 (deftest greeting-test
   (with-system
-    [sut (core/api-system {:server {:port 8088}})]
+    [sut (core/api-system {:server {:port (get-free-port)}})]
     (is (= {:body "Hello, world!"
             :status 200}
            (-> (sut->url sut (url-for :greet))
@@ -36,7 +42,7 @@
                 :items [{:id (random-uuid)
                          :name "Finish the test"}]}]
     (with-system
-      [sut (core/api-system {:server {:port 8088}})]
+      [sut (core/api-system {:server {:port (get-free-port)}})]
       (reset! (-> sut :in-memory-state-component :state-atom) [todo-1])
       (is (= {:body (pr-str todo-1)
               :status 200}
