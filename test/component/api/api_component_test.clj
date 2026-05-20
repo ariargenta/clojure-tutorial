@@ -1,5 +1,6 @@
 (ns component.api.api-component-test
-  (:require [clojure.string :as str]
+  (:require [cheshire.core :as json]
+            [clojure.string :as str]
             [clojure.test :refer :all]
             [com.stuartsierra.component :as component]
             [api.core :as core]
@@ -31,30 +32,87 @@
     (is (= {:body "Hello, world!"
             :status 200}
            (-> (sut->url sut (url-for :greet))
-           (client/get)
+           (client/get {:accept :json})
            (select-keys [:body :status]))))))
+
+(deftest content-negotiation-test
+  (testing "Only application/json is accepted")
+  (with-system
+    [sut (core/api-system {:server {:port (get-free-port)}})]
+    (is (= {:body "Not Acceptable"
+            :status 406}
+           (-> (sut->url sut (url-for :greet))
+               (client/get {:accept
+                            :edn
+                            :throw-exceptions false})
+               (select-keys [:body :status]))))))
 
 
 (deftest get-todo-test
-  (let [todo-id-1 (random-uuid)
+  (let [todo-id-1 (str (random-uuid))
         todo-1 {:id todo-id-1
                 :name "To do test"
-                :items [{:id (random-uuid)
+                :items [{:id (str (random-uuid))
                          :name "Finish the test"}]}]
     (with-system
       [sut (core/api-system {:server {:port (get-free-port)}})]
-      (reset! (-> sut :in-memory-state-component :state-atom) [todo-1])
-      (is (= {:body (pr-str todo-1)
+      (reset! (-> sut :in-memory-state-component :state-atom)
+              [todo-1])
+      (is (= {:body todo-1
               :status 200}
-             (-> (sut->url sut (url-for :get-todo {:path-params {:todo-id todo-id-1}}))
-                 (client/get)
+             (-> (sut->url sut
+                           (url-for :get-todo
+                                        {:path-params
+                                         {:todo-id todo-id-1}}))
+                 (client/get {:accept :json
+                              :as :json
+                              :throw-exceptions false})
                  (select-keys [:body :status]))))
+
      (testing "Empty body returned for random id")
       (is (= {:body ""
-              :status 200}
+              :status 404}
              (-> (sut->url sut (url-for :get-todo {:path-params {:todo-id random-uuid}}))
-                 (client/get)
+                 (client/get {:throw-exceptions false})
                  (select-keys [:body :status])))))))
 
-(deftest simple-api-test
-  (is (= 1 1)))
+(deftest post-todo-test
+  (let [todo-id-1 (str (random-uuid))
+        todo-1 {:id todo-id-1
+                :name "To do test"
+                :items []}]
+    (with-system
+      [sut (core/api-system {:server {:port (get-free-port)}})]
+
+      (testing "Store and retrieve todo by id")
+      (is (= {:body todo-1
+              :status 201}
+             (-> (sut->url sut (url-for :post-todo))
+                 (client/post {:accept :json
+                               :content-type :json
+                              :as :json
+                              :throw-exceptions false
+                              :body (json/encode todo-1)})
+                 (select-keys [:body :status]))))
+
+
+      (is (= {:body todo-1
+              :status 200}
+             (-> (sut->url sut
+                           (url-for :get-todo
+                                    {:path-params
+                                     {:todo-id todo-id-1}}))
+                 (client/get {:accept :json
+                              :as :json
+                              :throw-exceptions false})
+                 (select-keys [:body :status]))))
+
+      (testing "Invalid Todo is rejected")
+      (is (= {:status 500}
+             (-> (sut->url sut (url-for :post-todo))
+                 (client/post {:accept :json
+                               :content-type :json
+                               :as :json
+                               :throw-exceptions false
+                               :body (json/encode {:id todo-id-1})})
+                 (select-keys [:status])))))))
