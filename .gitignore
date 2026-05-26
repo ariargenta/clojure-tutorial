@@ -14,8 +14,8 @@ pom.xml.asc
 .vscode/
 .calva
 .calva-repl/
-.lsp/.cache/
-.clj-kondo/.cache/
+.lsp
+.clj-kondo/
 .DS_Store
 Thumbs.db
 .cpcache/

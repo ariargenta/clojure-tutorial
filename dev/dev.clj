@@ -3,5 +3,9 @@
             [api.core :as core]))
 
 (component-repl/set-init
-  (fn [_old-system]
-    (core/api-system {:server {:port 3001}})))
+  (fn [_]
+    (core/api-system {:server {:port 3001}
+                      :htmx {:server {:port 3002}}
+                      :db-spec {:jdbcUrl "jdbc:postgresql://localhost:5432/cljapi"
+                                :username "cljapi"
+                                :password "cljapi"}})))

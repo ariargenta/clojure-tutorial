@@ -6,7 +6,9 @@
             [io.pedestal.http.content-negotiation :as content-negotiation]
             [cheshire.core :as json]
             [io.pedestal.http.body-params :as body-params]
-            [schema.core :as s]))
+            [next.jdbc :as jdbc]
+            [schema.core :as s]
+            [clojure.pprint]))
 
 (defn response
   ([status]
@@ -42,11 +44,23 @@
                       (not-found))]
        (assoc context :response response)))})
 
+(def info-handler
+  {:name :info-handler
+   :enter
+   (fn [{:keys [dependencies] :as context}]
+     (let [{:keys [data-source]} dependencies
+           db-response (first (jdbc/execute!
+                                (data-source)
+                                ["SHOW SERVER_VERSION"]))]
+       (assoc context :response
+                      {:status 200
+                       :body (str "Database server version: " (:server_version db-response))})))})
+
 (comment
-  [{:id (random-uuid)
-    :name "My todo list"
-    :items [{:id (random-uuid)
-             :name "Make a new API"
+  [{:id    (random-uuid)
+    :name  "My todo list"
+    :items [{:id     (random-uuid)
+             :name   "Make a new API"
              :status :created}]}
    {:id (random-uuid)
     :name "Empty todo list"
@@ -85,6 +99,7 @@
 (def routes
   (route/expand-routes
     #{["/greet" :get respond-hello :route-name :greet]
+      ["/info" :get info-handler :route-name :info]
       ["/todo/:todo-id" :get get-todo-handler :route-name :get-todo]
       ["/todo" :post [(body-params/body-params) post-todo-handler] :route-name :post-todo]}))
 
@@ -103,6 +118,7 @@
 (defrecord PedestalComponent
   [config
    testing
+   data-source
    in-memory-state-component]
 
   component/Lifecycle

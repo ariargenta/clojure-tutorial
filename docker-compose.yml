@@ -1,0 +1,10 @@
+services:
+  database:
+    image: postgres:18.1
+    ports:
+      - '5432:5432'
+    environment:
+      - 'POSTGRES_USER=cljapi'
+      - 'POSTGRES_PASSWORD=cljapi'
+      - 'POSTGRES_DB=cljapi'
+      - "POSTGRES_INITDB_ARGS='--encoding=UTF-8'"
