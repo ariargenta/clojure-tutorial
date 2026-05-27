@@ -4,8 +4,25 @@
             [api.components.testing :as test-component]
             [api.components.pedestal-component :as pedestal-component]
             [api.components.in-memory-state-component :as in-memory-state-component]
-            [next.jdbc.connection :as connection])
-  (:import (com.zaxxer.hikari HikariDataSource)))
+            [next.jdbc.connection :as connection]
+            [clojure.tools.logging :as log])
+  (:import (com.zaxxer.hikari HikariDataSource)
+           (org.flywaydb.core Flyway)))
+
+(defn datasource-component
+  [config]
+  (connection/component
+    HikariDataSource
+    (assoc (:db-spec config)
+      :init-fn (fn [datasource]
+                 (log/info "Running database init")
+                 (.migrate
+                   (.. (Flyway/configure)
+                       (dataSource datasource)
+                       (locations (into-array String
+                                              ["classpath:database/migrations"]))
+                       (table "schema_version")
+                       (load)))))))
 
 (defn api-system
   [config]
@@ -14,7 +31,7 @@
     (test-component/new-test-component config)
     :in-memory-state-component
     (in-memory-state-component/new-in-memory-state-component config)
-    :data-source (connection/component HikariDataSource (:db-spec config))
+    :data-source (datasource-component config)
     :pedestal-component
     (component/using
       (pedestal-component/new-pedestal-component config)

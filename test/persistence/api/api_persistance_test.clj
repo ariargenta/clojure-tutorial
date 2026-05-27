@@ -1,4 +1,4 @@
-(ns persistance.api.api-persistance-test
+(ns persistence.api.api-persistance-test
   (:require [clojure.test :refer :all]
             [next.jdbc :as jdbc])
   (:import (org.testcontainers.containers PostgreSQLContainer)))
