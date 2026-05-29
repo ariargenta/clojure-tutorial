@@ -1,5 +1,6 @@
 (ns api.components.pedestal-component
   (:require [com.stuartsierra.component :as component]
+            [honey.sql :as sql]
             [io.pedestal.http :as http]
             [io.pedestal.http.route :as route]
             [io.pedestal.interceptor :as interceptor]
@@ -7,6 +8,7 @@
             [cheshire.core :as json]
             [io.pedestal.http.body-params :as body-params]
             [next.jdbc :as jdbc]
+            [next.jdbc.result-set :as rs]
             [schema.core :as s]
             [clojure.pprint]))
 
@@ -44,6 +46,28 @@
                       (not-found))]
        (assoc context :response response)))})
 
+(def db-get-todo-handler
+  {:name :db-get-todo-handler
+   :enter
+   (fn [{:keys [dependencies] :as context}]
+     (let [{:keys [data-source]} dependencies
+           todo-id (-> context
+                       :request
+                       :path-params
+                       :todo-id
+                       (parse-uuid))
+           todo (jdbc/execute-one!
+                  (data-source)
+                  (-> {:select :*
+                       :from :todo
+                       :where [:= :todo-id todo-id]}
+                      (sql/format))
+                  {:builder-fn rs/as-unqualified-kebab-maps})
+           response (if todo
+                      (ok todo)
+                      (not-found))]
+       (assoc context :response response)))})
+
 (def info-handler
   {:name :info-handler
    :enter
@@ -54,7 +78,7 @@
                                 ["SHOW SERVER_VERSION"]))]
        (assoc context :response
                       {:status 200
-                       :body (str "Database server version: " (:server_version db-response))})))})
+                       :body   (str "Database server version: " (:server_version db-response))})))})
 
 (comment
   [{:id    (random-uuid)
@@ -101,7 +125,8 @@
     #{["/greet" :get respond-hello :route-name :greet]
       ["/info" :get info-handler :route-name :info]
       ["/todo/:todo-id" :get get-todo-handler :route-name :get-todo]
-      ["/todo" :post [(body-params/body-params) post-todo-handler] :route-name :post-todo]}))
+      ["/todo" :post [(body-params/body-params) post-todo-handler] :route-name :post-todo]
+      ["/db/todo/:todo-id" :get db-get-todo-handler :route-name :db-get-todo]}))
 
 (def url-for (route/url-for-routes routes))
 
