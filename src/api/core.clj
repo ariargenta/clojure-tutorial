@@ -26,6 +26,7 @@
 
 (defn api-system
   [config]
+  ;; Assert config is valid against schema
   (component/system-map
     :test-component
     (test-component/new-test-component config)
@@ -42,6 +43,7 @@
 (defn -main
   []
   (let [system (-> (config/read-config)
+                   (config/assert-valid-config!)
                    (api-system)
                    (component/start-system))]
   (println "Starting Clojure API service with configuration")
